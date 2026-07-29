@@ -11,6 +11,7 @@ repository's **trained representation probe** as a complete, working example.
 - [Which data is available?](#which-data-is-available)
 - [Example method: trained representation probe](#example-method-trained-representation-probe)
 - [Runtime and available libraries](#runtime-and-available-libraries)
+- [Evaluation environment](#evaluation-environment)
 - [What to submit](#what-to-submit)
 - [Check the submission locally](#check-the-submission-locally)
 - [How to submit](#how-to-submit)
@@ -45,7 +46,7 @@ Face cache. You do not have access to other models.
 
 You need:
 
-- Python 3.9+ and [`uv`](https://docs.astral.sh/uv/) for the local tooling;
+- Python 3.11+ and [`uv`](https://docs.astral.sh/uv/) for the local tooling;
 - `git` to clone the repository;
 - Docker, if you want to reproduce the offline evaluation container locally
   (recommended before submitting).
@@ -53,8 +54,8 @@ You need:
 Clone the repository and install dependencies:
 
 ```bash
-git clone git@github.com:aimo-interp/codabench.git
-cd codabench
+git clone git@github.com:aimo-interp/getting-started.git
+cd getting-started
 uv sync
 ```
 
@@ -108,8 +109,8 @@ data/val-sample/
 └── metadata.json
 ```
 
-The public labels are for development only. The final evaluation uses private
-problems and labels.
+The public labels are for development only. The final evaluation uses separate
+private problems and labels.
 
 ### Data available during evaluation
 
@@ -192,14 +193,14 @@ or a submitted `requirements.txt`.
 [`Dockerfile.competition`](Dockerfile.competition).** The current runtime
 provides:
 
-- PyTorch `2.12.1` with CUDA `12.6`;
+- PyTorch `2.12.1` with CUDA `13.2`;
 - Accelerate `1.13.0`;
 - Hugging Face Hub `1.22.0`;
 - joblib `1.5.3`;
 - pandas `3.0.3`;
 - safetensors `0.8.0`;
 - scikit-learn `1.8.0`;
-- tokenizers `0.23.0`;
+- tokenizers `0.22.2`;
 - Transformers `5.13.0`.
 
 Important consequences:
@@ -215,6 +216,32 @@ Important consequences:
 - You may include your own Python source files and pretrained data artifacts in
   the ZIP, such as pretrained probes, provided they comply with the competition
   rules.
+
+## Evaluation environment
+
+Each submission is evaluated on a dedicated GPU worker with the following
+resources:
+
+- **GPU:** one NVIDIA RTX PRO 6000 (Blackwell, compute capability 12.0) with
+  96 GB of VRAM.
+- **CPU and RAM:** 192 cores with ample system memory; there is no per-container
+  memory cap.
+- **Time limit:** 3600 seconds per evaluation run, applied separately to the
+  prediction run and the scoring run. Loading the cached 8B model costs roughly
+  a minute of that budget.
+- **Network:** disabled inside evaluation containers. `HF_HUB_OFFLINE=1` and
+  `TRANSFORMERS_OFFLINE=1` are preset.
+- **Model cache:** a read-only Hugging Face cache is mounted at
+  `/app/data/huggingface`, and `HF_HOME` already points to it, so
+  `from_pretrained(...)` resolves cached models with no extra configuration.
+  Pass `local_files_only=True` to fail fast on anything not cached.
+
+Models currently available in the cache:
+
+- `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B`
+
+Models outside this list cannot be loaded during evaluation. Contact the
+organizers if your method needs another model cached on the workers.
 
 ## What to submit
 
@@ -235,7 +262,7 @@ Do not submit:
 Correct ZIP layout, for the probing example:
 
 ```text
-trained-probe.zip
+baseline-submission-bundle.zip
 ├── solution.py
 ├── probe_inference.py
 └── probe_artifacts/
@@ -245,7 +272,7 @@ trained-probe.zip
 Incorrect ZIP layout:
 
 ```text
-trained-probe.zip
+baseline-submission-bundle.zip
 └── trained-probe/
     └── solution.py
 ```
@@ -254,14 +281,14 @@ Build the archive from inside the method directory:
 
 ```bash
 cd trained-probe
-zip -r ../trained-probe.zip solution.py probe_inference.py probe_artifacts
+zip -r ../baseline-submission-bundle.zip solution.py probe_inference.py probe_artifacts
 cd ..
 ```
 
 Verify that `solution.py` is at the root:
 
 ```bash
-unzip -l trained-probe.zip
+unzip -l baseline-submission-bundle.zip
 ```
 
 ## Check the submission locally
@@ -325,7 +352,7 @@ This creates a solution ZIP. For the probing example, the output is
 
 1. Sign in to the AIMO competition on Codabench.
 2. Open the active submission phase.
-3. Upload `trained-probe.zip` or the generated
+3. Upload `baseline-submission-bundle.zip` or the generated
    `dist/solution-trained-probe.zip`.
 4. Wait for ingestion and scoring to finish.
 5. Check `coverage` and `invalid_predictions` before interpreting accuracy.
@@ -339,12 +366,10 @@ locally with the same Docker image.
 ### Repository layout
 
 ```text
-components/             standalone Codabench ingestion and scoring programs
-competition/            competition manifest, pages, and source assets
-config/                 local-to-Codabench resource mapping template
+components/             the Codabench ingestion and scoring programs, used by run_local.py
 data/val-sample/        generated public validation import (ignored)
-docs/                   contract and security decisions
-scripts/                deterministic archive builders and local runner
-solutions/              auto-discovered baseline submissions
-tests/                  end-to-end tests
+scripts/                dataset importer, local runner, and archive builder
+solutions/              example methods, including the trained probe
+Dockerfile.competition  the evaluation runtime (exact package versions)
+pyproject.toml          local dependencies mirroring the runtime versions
 ```

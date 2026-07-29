@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1
+
+# PyTorch 2.12.1, CUDA 13.2, cuDNN 9, linux/amd64.
+# CUDA 13.2 is required for NVIDIA Blackwell (sm_120) GPUs such as the RTX PRO
+# 6000 on the llmc-gpu-2 worker; a CUDA 12.6 build has no sm_120 kernels and
+# fails at runtime with "no kernel image is available for execution on the
+# device". Pin the manifest digest so Codabench jobs use the same base
+# environment.
+FROM pytorch/pytorch:2.12.1-cuda13.2-cudnn9-runtime@sha256:f48553a21cd5944e8093a74801e403283311b460a5b602ec02d15fe98f04ff5f
+
+# Pin the current Transformers runtime and its binary/model-loading dependencies
+# so every Codabench job uses the same environment.
+# --break-system-packages: the CUDA 13.2 base image ships a PEP 668
+# externally-managed Python; installing into it is intentional here.
+RUN python -m pip install --no-cache-dir --break-system-packages \
+        "accelerate==1.13.0" \
+        "huggingface-hub==1.22.0" \
+        "joblib==1.5.3" \
+        "pandas==3.0.3" \
+        "safetensors==0.8.0" \
+        "scikit-learn==1.8.0" \
+        "tokenizers==0.22.2" \
+        "transformers==5.13.0" \
+    && python -c "import sklearn, torch, transformers; from transformers import Qwen3ForCausalLM; print(torch.__version__, transformers.__version__, sklearn.__version__, Qwen3ForCausalLM.__name__)"
+
+# Evaluation containers have networking disabled. Model weights must be supplied
+# separately (for example under the worker-backed /app/data mount).
+ENV HF_HUB_OFFLINE=1 \
+    HF_HOME=/app/data/huggingface \
+    TRANSFORMERS_OFFLINE=1 \
+    TOKENIZERS_PARALLELISM=false
