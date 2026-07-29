@@ -1,0 +1,28 @@
+[project]
+name = "aimo-interp-getting-started"
+version = "1.0.0"
+description = "AIMO Interpretability Challenge — getting-started kit and local evaluation harness"
+requires-python = ">=3.11"
+# Exact versions from Dockerfile.competition, the evaluation runtime. Train and
+# serialize your artifacts against these so they load identically on Codabench.
+# torch is version-pinned but not build-pinned: the evaluation image ships the
+# CUDA build, while `uv sync` on a laptop installs the default wheel for your
+# platform, which also runs on CPU.
+dependencies = [
+    "accelerate==1.13.0",
+    "huggingface-hub==1.22.0",
+    "joblib==1.5.3",
+    "pandas==3.0.3",
+    "safetensors==0.8.0",
+    "scikit-learn==1.8.0",
+    "tokenizers==0.22.2",
+    "transformers==5.13.0",
+    "torch~=2.12.1",
+]
+
+# Local tooling only — NOT part of the evaluation runtime. pyarrow lets the
+# dataset importer read the private dataset's parquet files.
+[dependency-groups]
+dev = [
+    "pyarrow>=17",
+]

@@ -1,0 +1,2 @@
+command: python3 /app/program/scoring.py /app/input /app/output
+
