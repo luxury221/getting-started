@@ -23,29 +23,39 @@ The E2.5 validation stage contains four checks:
 
 The existing `temporal_v1_pilot.parquet` can be reused directly for full-grid, multi-seed, and nested micro-ablation runs. These steps do not require rerunning the 8B model.
 
-### Early-exit GPU experiment
+## Phase E2.6 — Early Dynamics Validation
 
-The updated `compute_temporal_features.py` accepts:
+Notebook: `AIMO_E2_6_Early_Dynamics_Kaggle.ipynb`
 
-```bash
---prefix-budgets 128 256 512 1024
-```
+Runbook: `../solutions/uncertainty-profiling/E2_6_EARLY_DYNAMICS.md`
 
-It generates once to the largest requested budget and derives every prefix from the same deterministic trace, rather than performing four separate model generations.
+E2.6 tests how early the robustness signal emerges and whether four directional slopes preserve most of the full temporal-trend gain.
 
-### Outputs to preserve
+The notebook compares three predictors at four generated-token budgets:
 
-Recommended E2.5 outputs under `/kaggle/working/aimo_outputs/`:
+- **E1 Official 14D** — aggregate uncertainty baseline.
+- **E2A Full 26D** — E1 + all 12 temporal-trend features.
+- **E2A Slope 18D** — E1 + four raw trend slopes.
 
-- `temporal_full_grid.json`
-- `trend_micro_official.json` / `.csv`
-- `trend_micro_nested.json` / `.csv`
-- `early_exit_64.parquet`
-- `early_exit_official.json` / `.csv`
-- `early_exit_nested.json` / `.csv`
+Budgets: `128 / 256 / 512 / 1024` generated tokens.
 
-### Phase-II decision gate
+The feature extractor performs one deterministic generation to the largest budget and derives all prefix features from the same trace. Validation includes 10-seed competition-style grouped CV and 5-seed nested grouped CV.
 
-Move to Representation Dynamics when the E2A trend advantage remains substantial across split seeds and preferably nested grouped CV, and when 256–512 token prefixes retain a meaningful share of the gain. At that point the preliminary result is strong enough to support an official compute proposal for hidden-state, cross-model, and counterfactual-stability experiments.
+Automatic gates:
 
-Later 27B/120B, hidden-state dynamics, and counterfactual stability experiments should not rely on Kaggle as the primary compute environment; those are intended for the official compute application after E2.5 validation.
+- **Gate A — Early signal:** nested BA gain >= 0.03 at a budget <= 512 with at least 4/5 positive nested seeds.
+- **Gate B — Compact slope:** slope BA within 0.01 of full trend, or at least 80% gain recovery.
+- **Gate C — Early plateau:** an early budget <= 512 is within 0.02 BA of the 1024-token full-trend result.
+
+Recommended first run: `MAX_SAMPLES = 64`. If Gate A passes, repeat with `MAX_SAMPLES = 128` before moving to Representation Dynamics.
+
+### E2.6 outputs to preserve
+
+The notebook writes `/kaggle/working/aimo_e2_6_results.zip`. Important contents:
+
+- `early_dynamics_64.parquet`
+- `early_dynamics_official.json` / `.csv`
+- `early_dynamics_nested.json` / `.csv`
+- `e2_6_decision.json`
+
+Later 27B/120B, hidden-state dynamics, and counterfactual stability experiments should use official compute after the early-dynamics signal has been replicated.
